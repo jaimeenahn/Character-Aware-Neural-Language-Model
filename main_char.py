@@ -1,12 +1,25 @@
 import pickle
 import torch
 import model as mm
-
+import torch.nn as nn
+import torch.nn.functional as F
 
 def prepare_sequence(seq, to_ix):
     idxs = [to_ix[w] for w in seq]
     tensor = torch.LongTensor(idxs)
     return torch.autograd.Variable(tensor)
+
+
+def highway(input, input_size):
+
+    g = nn.tanh()
+    W1 = nn.Linear(input_size, input_size, bias=True)
+    W2 = nn.Linear(input_size, input_size, bias=True)
+    t = F.sigmoid(W1(input))
+
+    output = torch.mul(t , g(W2(input))) + torch.mul((1.- t) , input)
+
+    return output
 
 with open('data.pickle', 'rb') as f :
     data = pickle.load(f)
