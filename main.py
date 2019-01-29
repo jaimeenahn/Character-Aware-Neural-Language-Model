@@ -75,12 +75,6 @@ val_labels = val_labels.reshape((-1, 20, 35))
 val_data = val_data.reshape((-1, 20, 35, 21))
 
 
-best_ppl = 10000
-
-final_ppl = 100
-
-num_trial = 20
-
 #(num_layers, batch, hidden_size)
 h = Variable(torch.zeros(2, 20, hidden_size))
 c = Variable(torch.zeros(2, 20, hidden_size))
