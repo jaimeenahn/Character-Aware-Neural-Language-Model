@@ -1,4 +1,10 @@
-# Character-Aware-Neural-Language-Model
+### Character-Aware-Neural-Language-Model
 
 
-1
+Input 상황
+ -  1.
+ -  2.
+
+# 1. CharCNN
+# 2. Highway
+# 3. LSTM
