@@ -79,36 +79,57 @@ val_data = val_data.reshape((-1, 20, 35, 21))
 h = Variable(torch.zeros(2, 20, hidden_size))
 c = Variable(torch.zeros(2, 20, hidden_size))
 
-#(hidden_size, vocab_size)
-W = nn.Linear(hidden_size,len(word_vocab), bias=True)
+#(hidden_size, vocab_size)          ????????????
+#W = nn.Linear(hidden_size,len(word_vocab), bias=True)
 
 
 model = CANLM(word_vocab, char_vocab, max_len, embed_dim, out_channels, kernels, hidden_size, batch_size)
 
-model.train()
 optimizer = torch.optim.SGD(model.parameters(), lr = learning_rate)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=1, verbose=True)
 
-
 for epoch in range(num_epochs) :
 
+    avg_loss = 0.0
+    num_examples = 0
+    # For training
+    model.train()
+    i = 0
     for input, target in zip(data, labels) :
-        i = 0
-        loss = list()
-        output, (h, c) ,W= model(input, h = h, c = c, W = W)
-        target = target.permute(1, 0)
-        target = [data for data in target]
-        avg_loss = 0.0
-        for out, y in zip(output, target):
+        optimizer.zero_grad()
+        i += 1
+        #loss = list()
+        loss = 0
 
+        output, (h, c) = model(input, h = h, c = c)
+        
+        #target = target.permute(1, 0)
+        #target = [data for data in target]
+        
+        target = torch.from_numpy(np.asarray(target)).long()
+        loss = nn.CrossEntropyLoss()(output.view(-1, 10000), target.view(-1))
+        loss.backward()
+        nn.utils.clip_grad_norm(model.parameters(), 5 ,2)
+        optimizer.step()
+        avg_loss += loss.item()
+        
+        #h = h.detach()
+
+        num_examples += output.size(0)
+        if i % 50 == 0:
+            print('Loss: %.3f, Perplexity: %5.2f' %(loss.item(), np.exp(loss)))
+        """
+        for out, y in zip(output, target):
             loss = nn.CrossEntropyLoss()(out, y)
             avg_loss += loss
-            optimizer.zero_grad()
             loss.backward(retain_graph=True)
             nn.utils.clip_grad_norm(model.parameters(), 5 ,2)
             optimizer.step()
+            optimizer.zero_grad()
 
             loss = loss.detach()
-        print('Epoch [%d/%d], Avg_Loss : %.3f ,Loss: %.3f, Perplexity: %5.2f' %(epoch + 1, num_epochs, avg_loss , loss, np.exp(loss)))
+        """
+    avg_loss /= num_examples
+    print('Epoch [%d/%d], Avg_Loss : %.3f ,Loss: %.3f, Perplexity: %5.2f' %(epoch + 1, num_epochs, avg_loss , loss, np.exp(loss)))
 
 

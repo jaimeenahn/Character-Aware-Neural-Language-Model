@@ -37,7 +37,9 @@ class CANLM(nn.Module) :
         #LSTM
         self.lstm = nn.LSTM(525, hidden_size, 2, batch_first=True, dropout=0.5)
 
-    def forward(self, x, h, c, W):
+        self.W = nn.Linear(hidden_size, len(word_vocab), bias=True)
+
+    def forward(self, x, h, c):
         #Embedding
         x = self.Embed(x)
         self.cnns = []
@@ -59,11 +61,18 @@ class CANLM(nn.Module) :
         #LSTM
         input_lstm = out_high
         out_lstm, (h_next, c_next) = self.lstm(input_lstm, (h, c))
-        out_lstm = out_lstm.permute(1,0,2)
-        out_per = [data for data in out_lstm]
-        logits = list()
-        for output_ in out_per :
-            logits.append(F.softmax(W(output_)))
+        
+        logits = F.softmax(self.W(out_lstm))
+        
+        #out_lstm = out_lstm.permute(1,0,2)
+        #out_per = [data for data in out_lstm]
+        #logits = list()
+        #for output_ in out_per :
+        #    logits.append(F.softmax(self.W(output_)))
 
-        return logits, (h_next, c_next), W
+        return logits, (h_next, c_next)
+
+
+
+
 
