@@ -3,23 +3,24 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def highway(input):
+class highway(nn.Module):
+    def __init__ (self, input_size):
+        super(highway, self).__init__()
+        self.W1 = nn.Linear(input_size, input_size, bias=True)
+        self.W2 = nn.Linear(input_size, input_size, bias=True)
 
-    g = nn.Tanh()
-    W1 = nn.Linear(input.shape[1], input.shape[1], bias=True)
-    W2 = nn.Linear(input.shape[1], input.shape[1], bias=True)
-    t = F.sigmoid(W1(input))
-
-    output1 = torch.mul(t, g(W2(input)))
-    output2 = torch.mul((1. - t), input)
-    output = output1 + output2
-
-    return output
+    def forward(self, input):
+        g = nn.Tanh()
+        t = F.sigmoid(self.W1(input))
+        output1 = torch.mul(t, g(self.W2(input)))
+        output2 = torch.mul((1. - t), input)
+        output = output1 + output2
+        return output
 
 class CANLM(nn.Module) :
     def __init__ (self, word_vocab, char_vocab, max_len, embed_dim, out_channels, kernels, hidden_size, batch_size):
         super(CANLM, self).__init__()
-
+        #Parameters
         self.word_vocab = word_vocab
         self.char_vocab = char_vocab
         self.max_len = max_len
@@ -28,12 +29,18 @@ class CANLM(nn.Module) :
         self.kernels = kernels
         self.hidden_size = hidden_size
         self.batch_size = batch_size
-        self.input_highway = []
+
         #Embedding
         self.Embed = nn.Embedding(len(char_vocab)+1, embed_dim, padding_idx=0)
 
         #Char-CNN
         self.cnns=[]
+        for kernel in  self.kernels :
+            self.cnns.append(nn.Conv2d(1, self.out_channel * kernel, kernel_size=(kernel, self.embed_dim)))
+
+        #Highway
+        self.highway = highway(sum([x for x in self.out_channel * self.kernels]))
+
         #LSTM
         self.lstm = nn.LSTM(525, hidden_size, 2, batch_first=True, dropout=0.5)
 
@@ -42,37 +49,27 @@ class CANLM(nn.Module) :
     def forward(self, x, h, c):
         #Embedding
         x = self.Embed(x)
-        self.cnns = []
         #CNN
+        cnn_results = []
         x = x.reshape(self.batch_size * 35, 1, 21, 15)
-        for kernel in self.kernels :
-            conv = nn.Conv2d(1, self.out_channel * kernel, kernel_size=(kernel, self.embed_dim))(x)
+        for cnn in self.cnns :
+            conv = cnn(x)
             conv = F.tanh(conv)
             conv = torch.squeeze(conv)
             result = torch.max(conv, 2)[0]
-            self.cnns.append(result)
-            output = torch.cat((self.cnns), 1)
+            cnn_results.append(result)
+            output = torch.cat((cnn_results), 1)
         high_in = output
 
         #Highway
-        out_high = highway(high_in)
+        out_high = self.highway(high_in)
         out_high = out_high.reshape(20, 35, -1)
 
         #LSTM
         input_lstm = out_high
         out_lstm, (h_next, c_next) = self.lstm(input_lstm, (h, c))
-        
+
         logits = F.softmax(self.W(out_lstm))
-        
-        #out_lstm = out_lstm.permute(1,0,2)
-        #out_per = [data for data in out_lstm]
-        #logits = list()
-        #for output_ in out_per :
-        #    logits.append(F.softmax(self.W(output_)))
 
         return logits, (h_next, c_next)
-
-
-
-
 
