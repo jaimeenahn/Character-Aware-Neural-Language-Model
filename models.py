@@ -18,7 +18,7 @@ class highway(nn.Module):
         return output
 
 class CANLM(nn.Module) :
-    def __init__ (self, word_vocab, char_vocab, max_len, embed_dim, out_channels, kernels, hidden_size, batch_size):
+    def __init__ (self, word_vocab, char_vocab, max_len, embed_dim, out_channels, kernels, hidden_size, batch_size, use_gpu):
         super(CANLM, self).__init__()
         #Parameters
         self.word_vocab = word_vocab
@@ -46,7 +46,26 @@ class CANLM(nn.Module) :
 
         self.W = nn.Linear(hidden_size, len(word_vocab), bias=True)
 
-    def forward(self, x, h, c):
+        if use_gpu is True:
+            for x in range(len(self.cnns)):
+                self.cnns[x] = self.cnns[x].cuda()
+            self.highway = self.highway.cuda()
+            self.lstm = self.lstm.cuda()
+            self.Embed = self.Embed.cuda()
+            self.W = self.W.cuda()
+
+    def init_weight(self):
+        for cnn in self.cnns:
+            cnn[0].weight.data.uniform_(-0.05, 0.05)
+            cnn[0].bias.data.fill_(0)
+        self.lstm.weights_hh_l0.data.uniform_(-0.05, 0.05)
+        self.lstm.weights_hh_l1.data.uniform_(-0.05, 0.05)
+        self.lstm.weights_ih_l0.data.uniform_(-0.05, 0.05)
+        self.lstm.weights_ih_l1.data.uniform_(-0.05, 0.05)
+        self.W.weight.data.uniform_(-0.05, 0.05)
+        self.W.bias.data.fill_(0)
+
+    def forward(self, x, h):
         #Embedding
         x = self.Embed(x)
         #CNN
@@ -67,9 +86,8 @@ class CANLM(nn.Module) :
 
         #LSTM
         input_lstm = out_high
-        out_lstm, (h_next, c_next) = self.lstm(input_lstm, (h, c))
-
-        logits = F.softmax(self.W(out_lstm))
-
-        return logits, (h_next, c_next)
+        out_lstm, h = self.lstm(input_lstm, h)
+        out_lstm = self.W(out_lstm).contiguous()
+        #input = F.softmax(out_lstm)
+        return out_lstm, h
 
