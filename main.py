@@ -29,7 +29,7 @@ label = word_to_idx(data, word_vocab)
 
 labels = label.copy()
 labels[1:] = labels[:-1]
-labels[-1] = label[0]
+labels[0] = label[-1]
 
 # train_input_data
 to_char(data, char_vocab, max_len)
@@ -56,7 +56,7 @@ val_label = word_to_idx(val_data, word_vocab)
 
 val_labels = val_label.copy()
 val_labels[1:] = val_labels[:-1]
-val_labels[-1] = val_label[0]
+val_labels[0] = val_label[-1]
 
 # val_input_data
 to_char(val_data, char_vocab, max_len)
@@ -85,7 +85,6 @@ model = CANLM(word_vocab, char_vocab, max_len, embed_dim, out_channels, kernels,
 old_PPL = 100000
 best_PPL = 100000
 
-
 #--------------------validation-------------------#
 
 
@@ -101,13 +100,12 @@ for epoch in range(num_epochs) :
     model.eval()
     avg_loss = 0.0
     num_examples = 0
-    # For training
     i = 0
 
     for input, target in zip(val_data, val_labels) :
 
         i += 1
-        loss = 0
+        val_loss = 0
 
         h = [state.detach() for state in h]
 
@@ -123,7 +121,8 @@ for epoch in range(num_epochs) :
         model.zero_grad()
 
 
-        if i % 5 == 0:
+        if i % 25 == 0:
+            print(output.view(-1, 10000), target.view(-1))
             print('Loss: %.3f, Perplexity: %5.2f' % (val_loss.data, np.exp(val_loss.data)))
 
 
@@ -165,7 +164,7 @@ for epoch in range(num_epochs) :
         output, h = model(input, h = h)
 
         #target = target.type(torch.FloatTensor)
-        loss =criterion (output.view(-1, 10000), target.view(-1))
+        loss = criterion(output.view(-1, 10000), target.view(-1))
 
         loss.backward()
         torch.nn.utils.clip_grad_norm(model.parameters(), 5, 2)

@@ -87,7 +87,7 @@ class CANLM(nn.Module) :
         #LSTM
         input_lstm = out_high
         out_lstm, h = self.lstm(input_lstm, h)
-        out_lstm = self.W(out_lstm).contiguous()
+        out_lstm = self.W(out_lstm)
         #input = F.softmax(out_lstm)
         return out_lstm, h
 
